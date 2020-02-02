@@ -1,0 +1,24 @@
+{
+  "name": "mutablevalue",
+  "version": "1.0.0",
+  "description": "Handling dependencies on a changeable value",
+  "main": "mutablevalue.js",
+  "scripts": {
+    "test": "node ./nodetest.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wwtchrsin/MutableValue.js.git"
+  },
+  "keywords": [
+    "dependencies",
+    "binding",
+    "controller"
+  ],
+  "author": "Vladislav Chursin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wwtchrsin/MutableValue.js/issues"
+  },
+  "homepage": "https://github.com/wwtchrsin/MutableValue.js#readme"
+}

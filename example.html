@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title></title>
+<!--<link rel="stylesheet" type="text/css" href="" media="all">-->
+<style type="text/css">
+html, body { margin: 0; padding: 0; height: 100%; }
+body { background-color: #002244; }
+#page { 
+	padding: 30px 20%; height: calc(100% - 60px); 
+	min-width: 260px; }
+header, footer { position: relative; height: 100px; }
+header { background-color: #004565; }
+.text-input-group { 
+	position: absolute; top: 50%; left: 0; right: 0;
+	transform: translateY(-50%); color: #22aacc;
+	font-size: 1.5rem; text-align: center;
+}
+.text-input-group input, .text-input-group button {
+	border: 1px solid #22aacc;
+	background-color: transparent; color: #22aacc;
+	font-size: 1rem; padding: 0.4rem;
+}
+.text-input-group input { 
+	border-top-left-radius: 5px;
+	border-bottom-left-radius: 5px;
+	margin: 0 0 0 1rem; 
+}
+.text-input-group button { 
+	border-top-right-radius: 5px;
+	border-bottom-right-radius: 5px;
+	margin: 0 0 0 -1px;
+}
+main { 
+	position: relative;  height: calc(100% - 204px); 
+	margin: 2px 0; min-height: 120px; 
+}
+header { border-top-left-radius: 20px; border-top-right-radius: 20px; }
+.page-content { position: relative;  height: 100%; }
+.page-content-container { position: absolute; font-size: 3vmin; }
+footer { 
+	/*background-color: #22aacc;*/
+	border-bottom-left-radius: 20px;
+	border-bottom-right-radius: 20px;
+}
+footer > div { 
+	position: absolute; top: 0; bottom: 0;
+	font-size: 2rem; color: #22aacc;
+	background-color: #004565;
+}
+footer > div:first-child { border-bottom-left-radius: 20px; }
+footer > div:last-child { border-bottom-right-radius: 20px; }
+.container > div {  
+	position: absolute; top: 50%; left: 0; right: 0;
+	transform: translateY(-50%);
+	text-align: center;
+}
+.clickable, button { cursor: pointer; }
+.inactive { background: #cccccc !important; }
+.clickable.colored:not(.inactive) { 
+	transition: background 200ms linear 0ms; 
+}
+.red { background-color: #ee5511; color: #ffffff; }
+.yellow { background-color: #eecc33; color: #ffffff; }
+.green { background-color: #44ccaa; color: #ffffff; }
+.blue { background-color: #22aacc; color: #ffffff; }
+.purple { background-color: #aa3388; color: #ffffff; }
+@media (max-height: 400px) {
+	.page-content-container { font-size: 12px; }
+}
+@media (max-width: 400px) {
+	.page-content-container { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+	<div id="page"></div>
+	<script type="text/javascript" src="./mutablevalue.min.js"></script>
+	<script type="text/javascript">
+		var bgcolors = [ "red", "yellow", "green", "blue", "purple" ];
+		var content = {};
+		var prefs = { 
+			value: new MutableValue("***"), 
+			pageNum: new MutableValue(-1), 
+			lastPage: -1,
+		};
+		prefs.pageNum.OnChange(function(value) {
+			if ( value < 0 ) value = prefs.lastPage;
+			if ( value > prefs.lastPage ) value = 0;
+			content.main.innerHTML = "";
+			content.main.appendChild( content.pages[value] );
+			return value;
+		});
+		var comm = {
+			getContent: function() { return content; },
+			getResource: function(name) {
+				if ( name === "bgcolors" ) return bgcolors;
+			},
+			getPrefs: function() { return prefs; },
+			goToPage: function(pageNum) {
+				prefs.pageNum.SetValue(pageNum);
+			},
+			goToNextPage: function() { 
+				prefs.pageNum.ModifyValue(function(v) { return v + 1; }); 
+			},
+			goToPrevPage: function() { 
+				prefs.pageNum.ModifyValue(function(v) { return v - 1; }); 
+			},
+			uniqnessCtrl: (function() {
+				var groups = [];
+				var instance = {};
+				var findGroup = function(group) {
+					for ( var i=0; i < groups.length; i++ ) {
+						if ( groups[i].marker === group )
+						{ return i; }
+					}
+					return -1;
+				};
+				var findValue = function(gIndex, value) {
+					for ( var i=0; i < groups[gIndex].values.length; i++ ) {
+						if ( groups[gIndex].values[i] === value )
+						{ return i; }
+					}
+					return -1;
+				};
+				instance.addValue = function(group, value) {
+					var gIndex = findGroup(group);
+					if ( gIndex < 0 ) {
+						groups.push({ marker: group, values: [ value ] });
+						return;
+					}
+					var vIndex = findValue(gIndex, value);
+					if ( vIndex < 0 ) groups[gIndex].values.push( value );
+				};
+				instance.valueExists = function(group, value) {
+					var gIndex = findGroup(group);
+					if ( gIndex < 0 ) return false;
+					return ( findValue(gIndex, value) >= 0 );
+				};
+				instance.removeGroup = function(group) {
+					var gIndex = findGroup(group);
+					if ( gIndex < 0 ) return;
+					groups.splice(gIndex, 1);
+				};
+				instance.clear = function() { groups= []; };
+				return instance;
+			})(),
+		};
+		var createTextNode = document.createTextNode.bind(document);
+		var createElement = document.createElement.bind(document);
+		var MutableContainer = function(comm, value, template, valueFilter) {
+			var self = this;
+			this["elems"] = {};
+			this["elems"]["root"] = createElement("div");
+			this["elems"]["text"] = createElement("div");
+			this["elems"]["root"].appendChild( this["elems"]["text"] );
+			this["elems"]["root"].classList.add("container");
+			value.GetValue(function(value) {
+				if ( valueFilter ) value = valueFilter(value);
+				var string = ( template )
+					? template.replace(/%v%/g, value)
+					: value;
+				this["elems"]["text"].textContent = string;
+			}, this, true);
+		};
+		var MutableSwitchableContainer = function(comm, value, template, valueFilter) {
+			var self = this, bgIndex, u;
+			MutableContainer.call(this, comm, value, template, valueFilter);
+			value.Disconn(this);
+			do { bgIndex = Math.floor(Math.random() * comm.getResource("bgcolors").length); } 
+			while ( comm.uniqnessCtrl.valueExists("mutable-container-bg", bgIndex) );
+			comm.uniqnessCtrl.addValue("mutable-container-bg", bgIndex);
+			this["elems"]["root"].classList.add("inactive");
+			this["elems"]["root"].classList.add("colored");
+			this["elems"]["root"].classList.add("clickable");
+			this["elems"]["root"].classList.add(comm.getResource("bgcolors")[bgIndex]);
+			this["elems"]["root"].addEventListener("click", function(ev) {
+				if ( this.classList.contains("inactive") ) {
+					this.classList.remove("inactive");
+					value.Connect(self);
+				} else {
+					this.classList.add("inactive");
+					value.Disconn(self);
+				}
+			});
+		};
+		var ImmutableContainer = function(comm, text) {
+			this["elems"] = {};
+			this["elems"]["root"] = createElement("div");
+			this["elems"]["text"] = createElement("div");
+			this["elems"]["root"].appendChild( this["elems"]["text"] );
+			this["elems"]["root"].classList.add("container");
+			this["elems"]["text"].textContent = text;
+		};
+		var ValueSetter = function(comm, value, name, rightSideLabel) {
+			var self = this;
+			this["elems"] = {};
+			this["elems"]["root"] = createElement("label");
+			this["elems"]["name"] = createTextNode(name);
+			this["elems"]["value"] = createElement("input");
+			this["elems"]["button"] = createElement("button");
+			this["elems"]["value"].setAttribute("type", "text");
+			this["elems"]["root"].classList.add("text-input-group");
+			this["elems"]["root"].appendChild( this["elems"]["value"] );
+			if ( rightSideLabel !== true ) {
+				this["elems"]["root"].appendChild( this["elems"]["name"] );
+				this["elems"]["root"].appendChild( this["elems"]["value"] );
+			} else {
+				this["elems"]["root"].appendChild( this["elems"]["value"] );
+				this["elems"]["root"].appendChild( this["elems"]["name"] );
+			}
+			this["elems"]["root"].appendChild( this["elems"]["button"] );
+			this["elems"]["value"].setAttribute("size", "10");
+			this["elems"]["value"].setAttribute("maxlength", "7");
+			this["elems"]["value"].value = value.TraceValue();
+			this["elems"]["button"].textContent = "SET";
+			this["elems"]["button"].addEventListener("click", function(ev) {
+				value.SetValue( self["elems"]["value"].value );
+			});
+		};
+		var Header = function(comm) {
+			this["value-setter"] = new ValueSetter( comm, comm.getPrefs().value, "value" );
+			this["elems"] = {};
+			this["elems"]["root"] = createElement("header");
+			this["elems"]["content"] = createElement("div");
+			this["elems"]["content"].appendChild( this["value-setter"]["elems"]["root"] );
+			this["elems"]["root"].appendChild( this["elems"]["content"] );
+		};
+		var Footer = function(comm) {
+			this["elems"] = {};
+			this["elems"]["root"] = createElement("footer");
+			this["go-back"] = new ImmutableContainer( comm, "back" );
+			this["page-num"] = new MutableContainer( comm, comm.getPrefs().pageNum, "Page %v%", 
+				function(v) { 
+					return String.fromCharCode("A".charCodeAt(0) + v); 
+				} );
+			this["go-forth"] = new ImmutableContainer( comm, "forth" );
+			this["elems"]["root"].appendChild( this["go-back"]["elems"]["root"] );
+			this["elems"]["root"].appendChild( this["page-num"]["elems"]["root"] );
+			this["elems"]["root"].appendChild( this["go-forth"]["elems"]["root"] );
+			this["go-back"]["elems"]["root"].style["left"] = "0";
+			this["go-back"]["elems"]["root"].style["right"] = "calc(67% + 2px)";
+			this["page-num"]["elems"]["root"].style["left"] = "33%";
+			this["page-num"]["elems"]["root"].style["right"] = "calc(33% + 2px)";
+			this["go-forth"]["elems"]["root"].style["left"] = "67%";
+			this["go-forth"]["elems"]["root"].style["right"] = "0%";
+			this["go-back"]["elems"]["root"].classList.add("clickable");
+			this["go-forth"]["elems"]["root"].classList.add("clickable");
+			this["go-back"]["elems"]["root"].addEventListener("click", function(ev) {
+				comm.goToPrevPage(); });
+			this["go-forth"]["elems"]["root"].addEventListener("click", function(ev) {
+				comm.goToNextPage(); });
+			this["go-back"]["elems"]["root"]
+		};
+		var PageContent = function(comm) {
+			var yLeft = 75 - Math.floor(Math.random() * 50);
+			var yRight = 75 - Math.floor(Math.random() * 50);
+			var x = 75 - Math.floor(Math.random() * 50);
+			this["elems"] = {};
+			this["elems"]["root"] = createElement("div");
+			this["containers"] = [];
+			for ( var i=0; i < 4; i++ ) {
+				this["containers"][i] = new MutableSwitchableContainer(comm, comm.getPrefs().value);
+				this["containers"][i]["elems"]["root"].classList.add("page-content-container");
+				this["elems"]["root"].appendChild( this["containers"][i]["elems"]["root"] );
+			}
+			this["elems"]["root"].classList.add("page-content");
+			this["containers"][0]["elems"]["root"].style["top"] = "0";
+			this["containers"][0]["elems"]["root"].style["left"] = "0";
+			this["containers"][0]["elems"]["root"].style["right"] = "calc("+(100-x)+"% + 2px)";
+			this["containers"][0]["elems"]["root"].style["bottom"] = "calc("+(100-yLeft)+"% + 2px)";
+			this["containers"][1]["elems"]["root"].style["top"] = "0";
+			this["containers"][1]["elems"]["root"].style["left"] = x+"%";
+			this["containers"][1]["elems"]["root"].style["right"] = "0";
+			this["containers"][1]["elems"]["root"].style["bottom"] = "calc("+(100-yRight)+"% + 2px)";
+			this["containers"][2]["elems"]["root"].style["top"] = yLeft+"%";
+			this["containers"][2]["elems"]["root"].style["left"] = "0";
+			this["containers"][2]["elems"]["root"].style["right"] = "calc("+(100-x)+"% + 2px)";
+			this["containers"][2]["elems"]["root"].style["bottom"] = "0";
+			this["containers"][3]["elems"]["root"].style["top"] = yRight+"%";
+			this["containers"][3]["elems"]["root"].style["left"] = x+"%";
+			this["containers"][3]["elems"]["root"].style["right"] = "0";
+			this["containers"][3]["elems"]["root"].style["bottom"] = "0";
+		};
+		var Page = function(comm, pagesNumber) {
+			this["elems"] = {};
+			this["elems"]["root"] = document.getElementById("page");
+			this["header"] = new Header(comm);
+			this["footer"] = new Footer(comm);
+			this["elems"]["content"] = createElement("main");
+			this["pages"] = []; comm.getContent().pages = [];
+			for ( var i=0; i < pagesNumber; i++ ) { 
+				this["pages"][i] = new PageContent(comm);
+				comm.getContent().pages[i] = this["pages"][i]["elems"]["root"];
+				comm.uniqnessCtrl.removeGroup("mutable-container-bg");
+			}
+			this["elems"]["root"].setAttribute("id", "page");
+			this["elems"]["root"].appendChild( this["header"]["elems"]["root"] );
+			this["elems"]["root"].appendChild( this["elems"]["content"] );
+			this["elems"]["root"].appendChild( this["footer"]["elems"]["root"] );
+			comm.getContent().main = this["elems"]["content"];
+			comm.getPrefs().lastPage = pagesNumber - 1;
+			comm.getPrefs().pageNum.SetValue(0);
+		};
+		window.addEventListener("DOMContentLoaded", function(ev) {
+			comm.getContent().page = new Page(comm, 3);
+		});
+	</script>
+</body>
+</html>
